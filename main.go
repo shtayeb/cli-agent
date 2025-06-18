@@ -18,7 +18,7 @@ func main() {
 	availableTools := tools.GetAllTools()
 
 	// Create the agent
-	agentInstance := agent.NewAgent(cfg.Client, cfg.GetUserMessage, availableTools)
+	agentInstance := agent.NewAgent(cfg.Client, availableTools)
 
 	// Run the agent
 	// err := agentInstance.Run(context.TODO())

@@ -1,23 +1,18 @@
 package config
 
 import (
-	"bufio"
-	"os"
-
 	"github.com/anthropics/anthropic-sdk-go"
 )
 
 // Config holds the application configuration
 type Config struct {
-	Client         *anthropic.Client
-	GetUserMessage func() (string, bool)
+	Client *anthropic.Client
 }
 
 // NewConfig creates a new configuration instance
 func NewConfig() *Config {
 	return &Config{
-		Client:         setupAnthropicClient(),
-		GetUserMessage: setupUserInput(),
+		Client: setupAnthropicClient(),
 	}
 }
 
@@ -28,13 +23,13 @@ func setupAnthropicClient() *anthropic.Client {
 }
 
 // setupUserInput creates a function for reading user input from stdin
-func setupUserInput() func() (string, bool) {
-	scanner := bufio.NewScanner(os.Stdin)
+// func setupUserInput() func() (string, bool) {
+// 	scanner := bufio.NewScanner(os.Stdin)
 
-	return func() (string, bool) {
-		if !scanner.Scan() {
-			return "", false
-		}
-		return scanner.Text(), true
-	}
-}
+// 	return func() (string, bool) {
+// 		if !scanner.Scan() {
+// 			return "", false
+// 		}
+// 		return scanner.Text(), true
+// 	}
+// }

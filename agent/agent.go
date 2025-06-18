@@ -18,11 +18,10 @@ type Agent struct {
 }
 
 // NewAgent creates a new agent instance
-func NewAgent(client *anthropic.Client, getUserMessage func() (string, bool), toolDefinitions []tools.ToolDefinition) *Agent {
+func NewAgent(client *anthropic.Client, toolDefinitions []tools.ToolDefinition) *Agent {
 	return &Agent{
-		client:         client,
-		getUserMessage: getUserMessage,
-		tools:          toolDefinitions,
+		client: client,
+		tools:  toolDefinitions,
 	}
 }
 

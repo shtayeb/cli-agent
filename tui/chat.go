@@ -4,8 +4,8 @@ package tui
 // component library.
 import (
 	"agent/agent"
-	"context"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textarea"
@@ -65,6 +65,22 @@ func (m model) Init() tea.Cmd {
 	return textarea.Blink
 }
 
+type apiErrMsg struct {
+	err error
+}
+type fetchedUserMsg string
+
+func getUser(id int) tea.Cmd {
+	return func() tea.Msg {
+		res, err := http.Get(fmt.Sprintf("http://api.example.com/users?id=%d", id))
+		if err != nil {
+			return apiErrMsg{err}
+		}
+		// ...do unmarshaling and stuff...
+		return fetchedUserMsg("Agent: " + res.Status)
+	}
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var (
 		tiCmd tea.Cmd
@@ -75,6 +91,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.viewport, vpCmd = m.viewport.Update(msg)
 
 	switch msg := msg.(type) {
+	case fetchedUserMsg:
+		// We caught our message like a Pokémon!
+		// From here you could save the output to the model
+		// to display it later in your view.
+		m.messages = append(m.messages, string("test 000"+msg))
+
+		m.viewport.SetContent(
+			lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")),
+		)
+
+		return m, nil
 	case tea.WindowSizeMsg:
 		m.viewport.Width = msg.Width
 		m.textarea.SetWidth(msg.Width)
@@ -94,31 +121,33 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			return m, tea.Quit
 		case tea.KeyEnter:
-			chatMessage := m.senderStyle.Render("You: ") + m.textarea.Value()
+			// chatMessage := m.senderStyle.Render("You: ") + m.textarea.Value()
 
-			m.messages = append(m.messages, chatMessage)
+			// m.messages = append(m.messages, chatMessage)
 
-			m.viewport.SetContent(
-				lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")),
-			)
+			// m.viewport.SetContent(
+			// 	lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")),
+			// )
 
 			m.textarea.Reset()
 			m.viewport.GotoBottom()
 
+			return m, getUser(2)
+
 			//NOTE: Send the message to AI in here
 			// Return something from here
-			_, err := m.agent.Run(context.TODO(), chatMessage)
-			if err != nil {
-				errMsg := fmt.Sprintf("Error: %s\n", err.Error())
-				m.messages = append(m.messages, errMsg)
-			} else {
-				// Thst will handle the changes to the messages viewport
-				m.messages = append(m.messages, "agent responded successfully")
-			}
+			// _, err := m.agent.Run(context.TODO(), chatMessage)
+			// if err != nil {
+			// 	errMsg := fmt.Sprintf("Error: %s\n", err.Error())
+			// 	m.messages = append(m.messages, errMsg)
+			// } else {
+			// 	// Thst will handle the changes to the messages viewport
+			// 	m.messages = append(m.messages, "agent responded successfully")
+			// }
 
-			m.viewport.SetContent(
-				lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")),
-			)
+			// m.viewport.SetContent(
+			// 	lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")),
+			// )
 
 		}
 

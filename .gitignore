@@ -1,0 +1,58 @@
+# Created by https://www.toptal.com/developers/gitignore/api/go,react
+# Edit at https://www.toptal.com/developers/gitignore?templates=go,react
+
+### Go ###
+# If you prefer the allow list template instead of the deny list, see community template:
+# https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
+#
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.zip
+*.tar
+
+# Configuration files
+config.json
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# Go workspace file
+go.work
+
+# Go build folder
+build/
+
+### react ###
+.DS_*
+*.log
+logs
+**/*.backup.*
+**/*.back.*
+
+node_modules
+bower_components
+
+*.sublime*
+
+psd
+thumb
+sketch
+
+# Environment
+.env
+.env.development
+
+# test directory
+test/
+
+# End of https://www.toptal.com/developers/gitignore/api/go,react

@@ -1,12 +1,13 @@
 package main
 
 import (
-	"context"
-	"fmt"
-
 	"agent/agent"
 	"agent/config"
 	"agent/tools"
+	"agent/tui"
+	"log"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func main() {
@@ -20,8 +21,21 @@ func main() {
 	agentInstance := agent.NewAgent(cfg.Client, cfg.GetUserMessage, availableTools)
 
 	// Run the agent
-	err := agentInstance.Run(context.TODO())
+	// err := agentInstance.Run(context.TODO())
+	// if err != nil {
+	// 	fmt.Printf("Error: %s\n", err.Error())
+	// }
+
+	// TODO: pass the agent app to NewProgram
+	// Handle the agent app in the
+
+	_, err := tea.NewProgram(
+		tui.InitialChatModel(agentInstance),
+		tea.WithAltScreen(),
+		tea.WithMouseCellMotion(),
+	).Run()
+
 	if err != nil {
-		fmt.Printf("Error: %s\n", err.Error())
+		log.Fatal(err)
 	}
 }

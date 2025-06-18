@@ -27,55 +27,48 @@ func NewAgent(client *anthropic.Client, getUserMessage func() (string, bool), to
 }
 
 // Run starts the agent's main conversation loop
-func (a *Agent) Run(ctx context.Context) error {
+func (a *Agent) Run(ctx context.Context, userInput string) ([]anthropic.MessageParam, error) {
 	conversation := []anthropic.MessageParam{}
 
-	fmt.Println("Chat with Claude (use 'ctrl+c' to quit)")
+	// fmt.Println("Chat with Claude (use 'ctrl+c' to quit)")
 
-	readUserInput := true
+	// // colored 'you'
+	// fmt.Print("\u001b[94mYou\u001b[0m: ")
+	//
+	// userInput, ok := a.getUserMessage()
+	// if !ok {
+	// 	break
+	// }
+	//
+	userMessage := anthropic.NewUserMessage(anthropic.NewTextBlock(userInput))
+	conversation = append(conversation, userMessage)
 
-	for {
-		if readUserInput {
-			// colored 'you'
-			fmt.Print("\u001b[94mYou\u001b[0m: ")
-
-			userInput, ok := a.getUserMessage()
-			if !ok {
-				break
-			}
-
-			userMessage := anthropic.NewUserMessage(anthropic.NewTextBlock(userInput))
-			conversation = append(conversation, userMessage)
-		}
-
-		message, err := a.runInference(ctx, conversation)
-		if err != nil {
-			return err
-		}
-
-		conversation = append(conversation, message.ToParam())
-
-		toolResults := []anthropic.ContentBlockParamUnion{}
-		for _, content := range message.Content {
-			switch content.Type {
-			case "text":
-				fmt.Printf("\u001b[93mClaude\u001b[0m: %s\n", content.Text)
-			case "tool_use":
-				result := a.executeTool(content.ID, content.Name, content.Input)
-				toolResults = append(toolResults, result)
-			}
-		}
-
-		if len(toolResults) == 0 {
-			readUserInput = true
-			continue
-		}
-
-		readUserInput = false
-		conversation = append(conversation, anthropic.NewUserMessage(toolResults...))
+	message, err := a.runInference(ctx, conversation)
+	if err != nil {
+		return conversation, err
 	}
 
-	return nil
+	conversation = append(conversation, message.ToParam())
+
+	toolResults := []anthropic.ContentBlockParamUnion{}
+	for _, content := range message.Content {
+		switch content.Type {
+		case "text":
+			// fmt.Printf("\u001b[93mClaude\u001b[0m: %s\n", content.Text)
+			break
+		case "tool_use":
+			result := a.executeTool(content.ID, content.Name, content.Input)
+			toolResults = append(toolResults, result)
+		}
+	}
+
+	// if len(toolResults) == 0 {
+	// 	readUserInput = true
+	// }
+
+	conversation = append(conversation, anthropic.NewUserMessage(toolResults...))
+
+	return conversation, nil
 }
 
 // executeTool executes a tool by name with the given input
@@ -120,7 +113,8 @@ func (a *Agent) runInference(ctx context.Context, conversation []anthropic.Messa
 	}
 
 	message, err := a.client.Messages.New(ctx, anthropic.MessageNewParams{
-		Model:     anthropic.ModelClaude3_7Sonnet20250219,
+		// Model:     anthropic.ModelClaude3_7Sonnet20250219,
+		Model:     anthropic.ModelClaude_3_Haiku_20240307,
 		MaxTokens: int64(1024),
 		Messages:  conversation,
 		Tools:     anthropicTools,

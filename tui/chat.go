@@ -4,8 +4,8 @@ package tui
 // component library.
 import (
 	"agent/agent"
+	"context"
 	"fmt"
-	"net/http"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textarea"
@@ -65,19 +65,23 @@ func (m model) Init() tea.Cmd {
 	return textarea.Blink
 }
 
-type apiErrMsg struct {
-	err error
-}
-type fetchedUserMsg string
+type chatMsgResponse string
 
-func getUser(id int) tea.Cmd {
+func (m model) SendMessage(message string) tea.Cmd {
 	return func() tea.Msg {
-		res, err := http.Get(fmt.Sprintf("http://api.example.com/users?id=%d", id))
+		//NOTE: Send the message to AI in here
+		// Return something from here
+		_, err := m.agent.Run(context.TODO(), message)
+
 		if err != nil {
-			return apiErrMsg{err}
+			errMsg := fmt.Sprintf("Error: %s\n", err.Error())
+			m.messages = append(m.messages, errMsg)
+		} else {
+			// Thst will handle the changes to the messages viewport
+			m.messages = append(m.messages, "agent responded successfully")
 		}
-		// ...do unmarshaling and stuff...
-		return fetchedUserMsg("Agent: " + res.Status)
+
+		return chatMsgResponse("Agent: " + "this will be AI response")
 	}
 }
 
@@ -91,7 +95,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.viewport, vpCmd = m.viewport.Update(msg)
 
 	switch msg := msg.(type) {
-	case fetchedUserMsg:
+	case chatMsgResponse:
 		// We caught our message like a Pokémon!
 		// From here you could save the output to the model
 		// to display it later in your view.
@@ -121,34 +125,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			return m, tea.Quit
 		case tea.KeyEnter:
-			// chatMessage := m.senderStyle.Render("You: ") + m.textarea.Value()
+			chatMessage := m.senderStyle.Render("You: ") + m.textarea.Value()
 
-			// m.messages = append(m.messages, chatMessage)
+			m.messages = append(m.messages, chatMessage)
 
-			// m.viewport.SetContent(
-			// 	lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")),
-			// )
+			m.viewport.SetContent(
+				lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")),
+			)
 
 			m.textarea.Reset()
 			m.viewport.GotoBottom()
 
-			return m, getUser(2)
-
-			//NOTE: Send the message to AI in here
-			// Return something from here
-			// _, err := m.agent.Run(context.TODO(), chatMessage)
-			// if err != nil {
-			// 	errMsg := fmt.Sprintf("Error: %s\n", err.Error())
-			// 	m.messages = append(m.messages, errMsg)
-			// } else {
-			// 	// Thst will handle the changes to the messages viewport
-			// 	m.messages = append(m.messages, "agent responded successfully")
-			// }
-
-			// m.viewport.SetContent(
-			// 	lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")),
-			// )
-
+			return m, m.SendMessage(m.textarea.Value())
 		}
 
 	// We handle errors just like any other message

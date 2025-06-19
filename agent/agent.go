@@ -11,9 +11,8 @@ import (
 
 // Agent represents a conversational AI agent that can use tools
 type Agent struct {
-	client         *anthropic.Client
-	getUserMessage func() (string, bool)
-	tools          []tools.ToolDefinition
+	client *anthropic.Client
+	tools  []tools.ToolDefinition
 }
 
 // NewAgent creates a new agent instance
@@ -66,8 +65,8 @@ func (a *Agent) RunInference(ctx context.Context, conversation []anthropic.Messa
 	}
 
 	message, err := a.client.Messages.New(ctx, anthropic.MessageNewParams{
-		// Model:     anthropic.ModelClaude3_7Sonnet20250219,
-		Model:     anthropic.ModelClaude_3_Haiku_20240307,
+		Model: anthropic.ModelClaude3_7Sonnet20250219,
+		// Model:     anthropic.ModelClaude_3_Haiku_20240307,
 		MaxTokens: int64(1024),
 		Messages:  conversation,
 		Tools:     anthropicTools,

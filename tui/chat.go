@@ -137,6 +137,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.renderedMessages = append(m.renderedMessages, msg.messages...)
 		m.RenderConversationMessages()
 
+		m.viewport.GotoBottom()
+
 		return m, nil
 	case tea.WindowSizeMsg:
 		m.viewport.Width = msg.Width

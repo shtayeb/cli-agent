@@ -35,6 +35,9 @@ func GetAllTools() []ToolDefinition {
 	return []ToolDefinition{
 		ReadFileDefinition,
 		ListFilesDefinition,
+		CreateFileDefinition,
 		EditFileDefinition,
+		AppendToFileDefinition,
+		GetFileInfoDefinition,
 	}
 }

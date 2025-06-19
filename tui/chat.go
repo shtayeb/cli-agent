@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -21,12 +22,13 @@ type (
 )
 
 type model struct {
-	viewport    viewport.Model
-	messages    []string
-	textarea    textarea.Model
-	senderStyle lipgloss.Style
-	err         error
-	agent       *agent.Agent
+	viewport         viewport.Model
+	conversation     []anthropic.MessageParam
+	renderedMessages []string
+	textarea         textarea.Model
+	senderStyle      lipgloss.Style
+	err              error
+	agent            *agent.Agent
 }
 
 func InitialChatModel(agentApp *agent.Agent) model {
@@ -52,12 +54,12 @@ Type a message and press Enter to send.`)
 	ta.KeyMap.InsertNewline.SetEnabled(false)
 
 	return model{
-		textarea:    ta,
-		messages:    []string{},
-		viewport:    vp,
-		senderStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("5")),
-		err:         nil,
-		agent:       agentApp,
+		textarea:     ta,
+		conversation: []anthropic.MessageParam{},
+		viewport:     vp,
+		senderStyle:  lipgloss.NewStyle().Foreground(lipgloss.Color("5")),
+		err:          nil,
+		agent:        agentApp,
 	}
 }
 
@@ -65,24 +67,52 @@ func (m model) Init() tea.Cmd {
 	return textarea.Blink
 }
 
-type chatMsgResponse string
+type chatMsgResponse struct {
+	messages []string
+}
 
-func (m model) SendMessage(message string) tea.Cmd {
+func (m *model) Run(ctx context.Context, userInput string) tea.Cmd {
 	return func() tea.Msg {
-		//NOTE: Send the message to AI in here
-		// Return something from here
-		_, err := m.agent.Run(context.TODO(), message)
+		userMessage := anthropic.NewUserMessage(anthropic.NewTextBlock(userInput))
+		m.conversation = append(m.conversation, userMessage)
 
+		newMessages := []string{}
+
+		message, err := m.agent.RunInference(ctx, m.conversation)
 		if err != nil {
-			errMsg := fmt.Sprintf("Error: %s\n", err.Error())
-			m.messages = append(m.messages, errMsg)
-		} else {
-			// Thst will handle the changes to the messages viewport
-			m.messages = append(m.messages, "agent responded successfully")
+			newMessages = append(newMessages, fmt.Sprintf("\u001b[93mClaude\u001b[0m: %s\n", err.Error()))
+			return chatMsgResponse{messages: newMessages}
 		}
 
-		return chatMsgResponse("Agent: " + "this will be AI response")
+		m.conversation = append(m.conversation, message.ToParam())
+
+		toolResults := []anthropic.ContentBlockParamUnion{}
+
+		for _, content := range message.Content {
+			switch content.Type {
+			case "text":
+				newMessages = append(newMessages, fmt.Sprintf("\u001b[93mClaude\u001b[0m: %s\n", content.Text))
+			case "tool_use":
+				newMessages = append(newMessages, fmt.Sprintf("\u001b[92mtool\u001b[0m: %s(%s)\n", content.Name, content.Input))
+
+				result := m.agent.ExecuteTool(content.ID, content.Name, content.Input)
+
+				// Get the result of tool call here
+
+				toolResults = append(toolResults, result)
+			}
+		}
+
+		m.conversation = append(m.conversation, anthropic.NewUserMessage(toolResults...))
+
+		return chatMsgResponse{messages: newMessages}
 	}
+}
+
+func (m *model) RenderConversationMessages() {
+	m.viewport.SetContent(
+		lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.renderedMessages, "\n")),
+	)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -96,14 +126,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case chatMsgResponse:
-		// We caught our message like a Pokémon!
-		// From here you could save the output to the model
-		// to display it later in your view.
-		m.messages = append(m.messages, string("test 000"+msg))
-
-		m.viewport.SetContent(
-			lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")),
-		)
+		m.renderedMessages = append(m.renderedMessages, msg.messages...)
+		m.RenderConversationMessages()
 
 		return m, nil
 	case tea.WindowSizeMsg:
@@ -111,12 +135,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.textarea.SetWidth(msg.Width)
 		m.viewport.Height = msg.Height - m.textarea.Height() - lipgloss.Height(gap)
 
-		if len(m.messages) > 0 {
-			// Wrap content before setting it.
-			m.viewport.SetContent(
-				lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")),
-			)
+		if len(m.conversation) > 0 {
+			m.RenderConversationMessages()
 		}
+
 		m.viewport.GotoBottom()
 	case tea.KeyMsg:
 		switch msg.Type {
@@ -125,18 +147,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			return m, tea.Quit
 		case tea.KeyEnter:
-			chatMessage := m.senderStyle.Render("You: ") + m.textarea.Value()
+			inputMsg := m.textarea.Value()
+			chatMessage := m.senderStyle.Render("You: ") + inputMsg
+			m.renderedMessages = append(m.renderedMessages, chatMessage)
 
-			m.messages = append(m.messages, chatMessage)
-
-			m.viewport.SetContent(
-				lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")),
-			)
+			m.RenderConversationMessages()
 
 			m.textarea.Reset()
 			m.viewport.GotoBottom()
 
-			return m, m.SendMessage(m.textarea.Value())
+			return m, m.Run(context.TODO(), inputMsg)
 		}
 
 	// We handle errors just like any other message

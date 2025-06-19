@@ -20,15 +20,6 @@ func main() {
 	// Create the agent
 	agentInstance := agent.NewAgent(cfg.Client, availableTools)
 
-	// Run the agent
-	// err := agentInstance.Run(context.TODO())
-	// if err != nil {
-	// 	fmt.Printf("Error: %s\n", err.Error())
-	// }
-
-	// TODO: pass the agent app to NewProgram
-	// Handle the agent app in the
-
 	_, err := tea.NewProgram(
 		tui.InitialChatModel(agentInstance),
 		tea.WithAltScreen(),

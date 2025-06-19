@@ -3,7 +3,6 @@ package agent
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"agent/tools"
 
@@ -25,53 +24,8 @@ func NewAgent(client *anthropic.Client, toolDefinitions []tools.ToolDefinition) 
 	}
 }
 
-// Run starts the agent's main conversation loop
-func (a *Agent) Run(ctx context.Context, userInput string) ([]anthropic.MessageParam, error) {
-	conversation := []anthropic.MessageParam{}
-
-	// fmt.Println("Chat with Claude (use 'ctrl+c' to quit)")
-
-	// // colored 'you'
-	// fmt.Print("\u001b[94mYou\u001b[0m: ")
-	//
-	// userInput, ok := a.getUserMessage()
-	// if !ok {
-	// 	break
-	// }
-	//
-	userMessage := anthropic.NewUserMessage(anthropic.NewTextBlock(userInput))
-	conversation = append(conversation, userMessage)
-
-	message, err := a.runInference(ctx, conversation)
-	if err != nil {
-		return conversation, err
-	}
-
-	conversation = append(conversation, message.ToParam())
-
-	toolResults := []anthropic.ContentBlockParamUnion{}
-	for _, content := range message.Content {
-		switch content.Type {
-		case "text":
-			// fmt.Printf("\u001b[93mClaude\u001b[0m: %s\n", content.Text)
-			break
-		case "tool_use":
-			result := a.executeTool(content.ID, content.Name, content.Input)
-			toolResults = append(toolResults, result)
-		}
-	}
-
-	// if len(toolResults) == 0 {
-	// 	readUserInput = true
-	// }
-
-	conversation = append(conversation, anthropic.NewUserMessage(toolResults...))
-
-	return conversation, nil
-}
-
 // executeTool executes a tool by name with the given input
-func (a *Agent) executeTool(id, name string, input json.RawMessage) anthropic.ContentBlockParamUnion {
+func (a *Agent) ExecuteTool(id, name string, input json.RawMessage) anthropic.ContentBlockParamUnion {
 	var toolDef tools.ToolDefinition
 	var found bool
 
@@ -87,7 +41,7 @@ func (a *Agent) executeTool(id, name string, input json.RawMessage) anthropic.Co
 		return anthropic.NewToolResultBlock(id, "tool not found", true)
 	}
 
-	fmt.Printf("\u001b[92mtool\u001b[0m: %s(%s)\n", name, input)
+	// fmt.Printf("\u001b[92mtool\u001b[0m: %s(%s)\n", name, input)
 
 	response, err := toolDef.Function(input)
 	if err != nil {
@@ -98,7 +52,7 @@ func (a *Agent) executeTool(id, name string, input json.RawMessage) anthropic.Co
 }
 
 // runInference sends a message to Claude and gets a response
-func (a *Agent) runInference(ctx context.Context, conversation []anthropic.MessageParam) (*anthropic.Message, error) {
+func (a *Agent) RunInference(ctx context.Context, conversation []anthropic.MessageParam) (*anthropic.Message, error) {
 	anthropicTools := []anthropic.ToolUnionParam{}
 
 	for _, tool := range a.tools {

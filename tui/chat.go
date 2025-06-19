@@ -73,37 +73,45 @@ type chatMsgResponse struct {
 
 func (m *model) Run(ctx context.Context, userInput string) tea.Cmd {
 	return func() tea.Msg {
-		userMessage := anthropic.NewUserMessage(anthropic.NewTextBlock(userInput))
-		m.conversation = append(m.conversation, userMessage)
-
+		currentInput := userInput
+		hasToolCalls := true
 		newMessages := []string{}
 
-		message, err := m.agent.RunInference(ctx, m.conversation)
-		if err != nil {
-			newMessages = append(newMessages, fmt.Sprintf("\u001b[93mClaude\u001b[0m: %s\n", err.Error()))
-			return chatMsgResponse{messages: newMessages}
-		}
-
-		m.conversation = append(m.conversation, message.ToParam())
-
-		toolResults := []anthropic.ContentBlockParamUnion{}
-
-		for _, content := range message.Content {
-			switch content.Type {
-			case "text":
-				newMessages = append(newMessages, fmt.Sprintf("\u001b[93mClaude\u001b[0m: %s\n", content.Text))
-			case "tool_use":
-				newMessages = append(newMessages, fmt.Sprintf("\u001b[92mtool\u001b[0m: %s(%s)\n", content.Name, content.Input))
-
-				result := m.agent.ExecuteTool(content.ID, content.Name, content.Input)
-
-				// Get the result of tool call here
-
-				toolResults = append(toolResults, result)
+		for hasToolCalls {
+			if currentInput != "" {
+				userMessage := anthropic.NewUserMessage(anthropic.NewTextBlock(userInput))
+				m.conversation = append(m.conversation, userMessage)
 			}
-		}
 
-		m.conversation = append(m.conversation, anthropic.NewUserMessage(toolResults...))
+			hasToolCalls = false // Reset flag
+			message, err := m.agent.RunInference(ctx, m.conversation)
+			if err != nil {
+				newMessages = append(newMessages, fmt.Sprintf("\u001b[93mClaude\u001b[0m: %s\n", err.Error()))
+				return chatMsgResponse{messages: newMessages}
+			}
+
+			m.conversation = append(m.conversation, message.ToParam())
+
+			toolResults := []anthropic.ContentBlockParamUnion{}
+
+			for _, content := range message.Content {
+				switch content.Type {
+				case "text":
+					newMessages = append(newMessages, fmt.Sprintf("\u001b[93mClaude\u001b[0m: %s\n", content.Text))
+				case "tool_use":
+					hasToolCalls = true // Set flag when tools are used
+					newMessages = append(newMessages, fmt.Sprintf("\u001b[92mtool\u001b[0m: %s(%s)\n", content.Name, content.Input))
+					result := m.agent.ExecuteTool(content.ID, content.Name, content.Input)
+					toolResults = append(toolResults, result)
+				}
+			}
+
+			if hasToolCalls {
+				currentInput = "" // Clear input for next iteration
+				m.conversation = append(m.conversation, anthropic.NewUserMessage(toolResults...))
+			}
+
+		}
 
 		return chatMsgResponse{messages: newMessages}
 	}

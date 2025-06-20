@@ -1,7 +1,5 @@
 package tui
 
-// A simple program demonstrating the text area component from the Bubbles
-// component library.
 import (
 	"agent/agent"
 	"context"
@@ -23,48 +21,86 @@ type (
 	streamingCompleteMsg struct{}
 )
 
+type ChatMessage struct {
+	Content string
+	IsUser  bool
+}
+
 type model struct {
 	viewport                viewport.Model
 	conversation            []anthropic.MessageParam
-	renderedMessages        []string
+	messages                []ChatMessage
 	currentStreamingMessage string
 	isStreaming             bool
 	streamingChan           chan string
 	textarea                textarea.Model
-	senderStyle             lipgloss.Style
+	userStyle               lipgloss.Style
+	claudeStyle             lipgloss.Style
+	userBubbleStyle         lipgloss.Style
+	claudeBubbleStyle       lipgloss.Style
 	err                     error
 	agent                   *agent.Agent
+	width                   int
+	height                  int
 }
 
 func InitialChatModel(agentApp *agent.Agent) model {
 	ta := textarea.New()
-	ta.Placeholder = "Send a message..."
+	ta.Placeholder = "Type your message here..."
 	ta.Focus()
 
-	ta.Prompt = "┃ "
-	ta.CharLimit = 280
+	ta.Prompt = "💬 "
+	ta.CharLimit = 1000
 
-	ta.SetWidth(30)
+	ta.SetWidth(80)
 	ta.SetHeight(3)
 
 	// Remove cursor line styling
 	ta.FocusedStyle.CursorLine = lipgloss.NewStyle()
-
 	ta.ShowLineNumbers = false
-
-	vp := viewport.New(30, 5)
-	vp.SetContent(`Welcome to the chat room!
-Type a message and press Enter to send.`)
-
 	ta.KeyMap.InsertNewline.SetEnabled(false)
 
+	vp := viewport.New(80, 20)
+	vp.SetContent("Welcome to Claude Chat! 🤖\nType a message and press Enter to start chatting.")
+
+	// Chat bubble styles - User on right, Claude on left
+	userBubbleStyle := lipgloss.NewStyle().
+		Background(lipgloss.Color("#007AFF")).
+		Foreground(lipgloss.Color("#FFFFFF")).
+		Padding(1, 2).
+		MarginLeft(20).
+		Border(lipgloss.RoundedBorder()).
+		MaxWidth(60)
+
+	claudeBubbleStyle := lipgloss.NewStyle().
+		Background(lipgloss.Color("#E5E5EA")).
+		Foreground(lipgloss.Color("#000000")).
+		Padding(1, 2).
+		MarginRight(20).
+		Border(lipgloss.RoundedBorder()).
+		MaxWidth(60)
+
+	userStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#007AFF")).
+		Bold(true)
+
+	claudeStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#FF6B35")).
+		Bold(true)
+
 	return model{
-		textarea:     ta,
-		conversation: []anthropic.MessageParam{},
-		viewport:     vp,
-		senderStyle:  lipgloss.NewStyle().Foreground(lipgloss.Color("5")),
-		err:          nil,
-		agent:        agentApp,
+		textarea:          ta,
+		conversation:      []anthropic.MessageParam{},
+		messages:          []ChatMessage{},
+		viewport:          vp,
+		userStyle:         userStyle,
+		claudeStyle:       claudeStyle,
+		userBubbleStyle:   userBubbleStyle,
+		claudeBubbleStyle: claudeBubbleStyle,
+		err:               nil,
+		agent:             agentApp,
+		width:             80,
+		height:            25,
 	}
 }
 
@@ -96,8 +132,6 @@ func (m *model) Run(ctx context.Context, userInput string) tea.Cmd {
 		m.conversation = append(m.conversation, userMessage)
 	}
 
-	// channel for streaming updates
-
 	// streaming in a go routine
 	go func() {
 		defer close(m.streamingChan)
@@ -105,7 +139,6 @@ func (m *model) Run(ctx context.Context, userInput string) tea.Cmd {
 		hasToolCalls := true
 
 		for hasToolCalls {
-
 			hasToolCalls = false // Reset flag
 
 			message, err := m.agent.RunInferenceWithStreaming(ctx, m.conversation, func(text string) {
@@ -123,8 +156,6 @@ func (m *model) Run(ctx context.Context, userInput string) tea.Cmd {
 			toolResults := []anthropic.ContentBlockParamUnion{}
 			for _, content := range message.Content {
 				switch content.Type {
-				// case "text":
-				// newMessages = append(newMessages, fmt.Sprintf("\u001b[93mClaude\u001b[0m: %s\n", content.Text))
 				case "tool_use":
 					// Continue the loop: we have tool calls
 					hasToolCalls = true
@@ -146,10 +177,40 @@ func (m *model) Run(ctx context.Context, userInput string) tea.Cmd {
 	return m.waitForStreamingText()
 }
 
-func (m *model) RenderConversationMessages() {
-	m.viewport.SetContent(
-		lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.renderedMessages, "\n")),
-	)
+func (m *model) renderMessages() string {
+	var rendered []string
+	
+	// Calculate centered width for message alignment
+	centeredWidth := min(int(float64(m.width)*0.8), 120)
+	
+	for _, msg := range m.messages {
+		if msg.IsUser {
+			// User message - aligned to the right with blue bubble
+			userLine := lipgloss.NewStyle().Align(lipgloss.Right).Width(centeredWidth).Render(
+				m.userStyle.Render("You") + "\n" + 
+				m.userBubbleStyle.Render(msg.Content))
+			rendered = append(rendered, userLine)
+		} else {
+			// Claude message - aligned to the left with gray bubble
+			claudeLine := m.claudeStyle.Render("Claude") + "\n" + 
+				m.claudeBubbleStyle.Render(msg.Content)
+			rendered = append(rendered, claudeLine)
+		}
+	}
+
+	// Add current streaming message if any
+	if m.isStreaming && m.currentStreamingMessage != "" {
+		claudeLine := m.claudeStyle.Render("Claude") + "\n" + 
+			m.claudeBubbleStyle.Render(m.currentStreamingMessage + "▋")
+		rendered = append(rendered, claudeLine)
+	}
+
+	return strings.Join(rendered, "\n\n")
+}
+
+func (m *model) updateViewport() {
+	content := m.renderMessages()
+	m.viewport.SetContent(content)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -163,56 +224,74 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case streamingTextMsg:
+		if !m.isStreaming {
+			m.isStreaming = true
+			m.currentStreamingMessage = ""
+		}
+		
 		// accumulate streaming text
 		m.currentStreamingMessage += string(msg)
-
-		// Update or add Claude message
-		claudeMsg := fmt.Sprintf("\u001b[93mClaude\u001b[0m: %s", m.currentStreamingMessage)
-
-		if len(m.renderedMessages) > 0 && strings.HasPrefix(m.renderedMessages[len(m.renderedMessages)-1], "\u001b[93mClaude\u001b[0m:") {
-			// Update existing message
-			m.renderedMessages[len(m.renderedMessages)-1] = claudeMsg
-		} else {
-			// Add new message
-			m.renderedMessages = append(m.renderedMessages, claudeMsg)
-		}
-
-		m.RenderConversationMessages()
+		
+		m.updateViewport()
 		m.viewport.GotoBottom()
 
 		// Continue listening for more streaming updates
 		return m, m.waitForStreamingText()
 
 	case streamingCompleteMsg:
+		if m.currentStreamingMessage != "" {
+			// Add the completed Claude message
+			m.messages = append(m.messages, ChatMessage{
+				Content: m.currentStreamingMessage,
+				IsUser:  false,
+			})
+		}
+		
 		m.isStreaming = false
 		m.streamingChan = nil
 		m.currentStreamingMessage = ""
+		
+		m.updateViewport()
+		m.viewport.GotoBottom()
 
 		return m, nil
 
 	case tea.WindowSizeMsg:
-		m.viewport.Width = msg.Width
-		m.textarea.SetWidth(msg.Width)
-		m.viewport.Height = msg.Height - m.textarea.Height() - lipgloss.Height(gap)
+		m.width = msg.Width
+		m.height = msg.Height
+		
+		// Calculate centered dimensions
+		centeredWidth := min(int(float64(msg.Width)*0.8), 120)
+		
+		m.viewport.Width = centeredWidth
+		m.textarea.SetWidth(centeredWidth)
+		m.viewport.Height = msg.Height - m.textarea.Height() - lipgloss.Height(gap) - 4
 
-		if len(m.conversation) > 0 {
-			m.RenderConversationMessages()
-		}
+		// Update bubble styles with new width (60% of centered width)
+		maxBubbleWidth := (centeredWidth * 6) / 10
+		m.userBubbleStyle = m.userBubbleStyle.MaxWidth(maxBubbleWidth)
+		m.claudeBubbleStyle = m.claudeBubbleStyle.MaxWidth(maxBubbleWidth)
 
+		m.updateViewport()
 		m.viewport.GotoBottom()
+
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
-			fmt.Println(m.textarea.Value())
-
 			return m, tea.Quit
 		case tea.KeyEnter:
-			inputMsg := m.textarea.Value()
-			chatMessage := m.senderStyle.Render("You: ") + inputMsg
-			m.renderedMessages = append(m.renderedMessages, chatMessage)
+			inputMsg := strings.TrimSpace(m.textarea.Value())
+			if inputMsg == "" {
+				return m, nil
+			}
 
-			m.RenderConversationMessages()
+			// Add user message
+			m.messages = append(m.messages, ChatMessage{
+				Content: inputMsg,
+				IsUser:  true,
+			})
 
+			m.updateViewport()
 			m.textarea.Reset()
 			m.viewport.GotoBottom()
 
@@ -229,10 +308,55 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	return fmt.Sprintf(
-		"%s%s%s",
-		m.viewport.View(),
+	// Calculate centered width (80% of terminal width, max 120 chars)
+	centeredWidth := min(int(float64(m.width)*0.8), 120)
+	leftPadding := (m.width - centeredWidth) / 2
+	
+	header := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#FFFFFF")).
+		Background(lipgloss.Color("#007AFF")).
+		Padding(0, 2).
+		Width(centeredWidth).
+		Align(lipgloss.Center).
+		Render("🤖 Claude Chat")
+
+	footer := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#666666")).
+		Width(centeredWidth).
+		Align(lipgloss.Center).
+		Render("Press Ctrl+C or Esc to quit • Enter to send message")
+
+	// Center the viewport content
+	centeredViewport := lipgloss.NewStyle().
+		Width(centeredWidth).
+		Render(m.viewport.View())
+
+	// Center the textarea
+	centeredTextarea := lipgloss.NewStyle().
+		Width(centeredWidth).
+		Render(m.textarea.View())
+
+	// Create the main content
+	content := lipgloss.JoinVertical(
+		lipgloss.Left,
+		header,
+		"",
+		centeredViewport,
 		gap,
-		m.textarea.View(),
+		centeredTextarea,
+		footer,
 	)
+
+	// Center everything horizontally
+	return lipgloss.NewStyle().
+		PaddingLeft(leftPadding).
+		Render(content)
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

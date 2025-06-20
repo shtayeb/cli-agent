@@ -57,7 +57,6 @@ var MY_AGENT_SYSTEM_PROMPT = `Your Core Instructions:
 - Organize code into separate files when appropriate. Follow best practices for naming, modularity, complexity, commenting, and readability.
 - Prioritize code readability: Code is read more often than it's written.
 - Implement real solutions—not dummies or placeholders—unless explicitly told to.
-- Seek full clarity before starting tasks. Ask follow-up questions if anything is unclear.
 - Only refactor large sections of code when explicitly instructed.
 -For each new task:
 	- Understand current architecture.

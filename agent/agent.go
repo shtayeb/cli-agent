@@ -50,8 +50,7 @@ func (a *Agent) ExecuteTool(id, name string, input json.RawMessage) anthropic.Co
 	return anthropic.NewToolResultBlock(id, response, false)
 }
 
-var MY_AGENT_SYSTEM_PROMPT = `
-Your Core Instructions:
+var MY_AGENT_SYSTEM_PROMPT = `Your Core Instructions:
 - Always read entire files before making changes to avoid duplication, missed code, or misunderstandings.
 - Commit changes early and often, especially after logical milestones in large tasks, to avoid losing progress.
 - Do not "skip" libraries or substitute without permission. If a library is not working, you are likely using it incorrectly—especially if the user requested it.
@@ -84,8 +83,8 @@ func (a *Agent) RunInference(ctx context.Context, conversation []anthropic.Messa
 	}
 
 	message, err := a.client.Messages.New(ctx, anthropic.MessageNewParams{
-		Model: anthropic.ModelClaude3_7Sonnet20250219,
-		// Model:     anthropic.ModelClaude_3_Haiku_20240307,
+		// Model: anthropic.ModelClaude3_7Sonnet20250219,
+		Model:     anthropic.ModelClaude_3_Haiku_20240307,
 		MaxTokens: int64(1024),
 		System: []anthropic.TextBlockParam{
 			{Text: MY_AGENT_SYSTEM_PROMPT},

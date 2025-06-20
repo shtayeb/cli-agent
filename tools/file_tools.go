@@ -118,8 +118,9 @@ func ListFiles(input json.RawMessage) (string, error) {
 
 	// Default to recursive if not specified
 	recursive := true
-	if listFilesInput.Recursive {
-		recursive = listFilesInput.Recursive
+	// Only override if explicitly specified in the input
+	if !listFilesInput.Recursive {
+		recursive = false
 	}
 
 	var files []string

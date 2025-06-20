@@ -91,7 +91,7 @@ func (a *Agent) RunInferenceWithStreaming(
 	stream := a.client.Messages.NewStreaming(ctx, anthropic.MessageNewParams{
 		// Model: anthropic.ModelClaude3_7Sonnet20250219,
 		Model:     anthropic.ModelClaude_3_Haiku_20240307,
-		MaxTokens: int64(1024),
+		MaxTokens: int64(4096),
 		System: []anthropic.TextBlockParam{
 			{Text: MY_AGENT_SYSTEM_PROMPT},
 		},

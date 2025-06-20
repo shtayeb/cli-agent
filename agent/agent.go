@@ -68,8 +68,14 @@ var MY_AGENT_SYSTEM_PROMPT = `Your Core Instructions:
 - For large or vague tasks, break them into smaller subtasks. If unclear, ask the user to clarify or help decompose the problem.
 `
 
+type StreamingCallback func(text string)
+
 // runInference sends a message to Claude and gets a response
-func (a *Agent) RunInference(ctx context.Context, conversation []anthropic.MessageParam) (*anthropic.Message, error) {
+func (a *Agent) RunInferenceWithStreaming(
+	ctx context.Context,
+	conversation []anthropic.MessageParam,
+	onStreamingText StreamingCallback,
+) (*anthropic.Message, error) {
 	anthropicTools := []anthropic.ToolUnionParam{}
 
 	for _, tool := range a.tools {
@@ -82,7 +88,7 @@ func (a *Agent) RunInference(ctx context.Context, conversation []anthropic.Messa
 		})
 	}
 
-	message, err := a.client.Messages.New(ctx, anthropic.MessageNewParams{
+	stream := a.client.Messages.NewStreaming(ctx, anthropic.MessageNewParams{
 		// Model: anthropic.ModelClaude3_7Sonnet20250219,
 		Model:     anthropic.ModelClaude_3_Haiku_20240307,
 		MaxTokens: int64(1024),
@@ -93,5 +99,32 @@ func (a *Agent) RunInference(ctx context.Context, conversation []anthropic.Messa
 		Tools:    anthropicTools,
 	})
 
-	return message, err
+	message := anthropic.Message{}
+
+	for stream.Next() {
+		event := stream.Current()
+		err := message.Accumulate(event)
+
+		if err != nil {
+			return &message, err
+		}
+
+		switch eventVariant := event.AsAny().(type) {
+		case anthropic.ContentBlockDeltaEvent:
+			switch deltaVariant := eventVariant.Delta.AsAny().(type) {
+			case anthropic.TextDelta:
+				// send streaming text to callback
+				if onStreamingText != nil {
+					onStreamingText(deltaVariant.Text)
+				}
+			}
+		}
+
+	}
+
+	if stream.Err() != nil {
+		panic(stream.Err())
+	}
+
+	return &message, nil
 }

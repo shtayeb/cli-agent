@@ -49,8 +49,6 @@ func InitialChatModel(agentApp *agent.Agent) model {
 	ta.Placeholder = "Type your message here..."
 	ta.Focus()
 
-	ta.CharLimit = 1000
-
 	ta.SetWidth(80)
 	ta.SetHeight(3)
 
@@ -169,16 +167,23 @@ func (m *model) renderMessages() string {
 	// Calculate centered width for message alignment
 	centeredWidth := min(int(float64(m.width)*0.8), 180)
 
+	// Set the bubble width to ensure text wrapping
+	// m.userBubbleStyle = m.userBubbleStyle.Width(centeredWidth)
+	m.claudeBubbleStyle = m.claudeBubbleStyle.Width(centeredWidth)
+
 	for _, msg := range m.messages {
 		if msg.IsUser {
-			// User message - aligned to the right with blue bubble
-			userLine := lipgloss.NewStyle().Align(lipgloss.Right).Width(centeredWidth).Render(
-				m.userStyle.Render("You") + "\n" +
-					m.userBubbleStyle.Render(msg.Content))
+			// User message - aligned to the right
+			userLine := lipgloss.NewStyle().
+				Align(lipgloss.Right).
+				Width(centeredWidth).
+				Render(
+					m.userStyle.Render("You") + "\n" +
+						m.userBubbleStyle.Render(msg.Content))
 
 			rendered = append(rendered, userLine)
 		} else {
-			// Claude message - aligned to the left with gray bubble
+			// Claude message - aligned to the left
 			claudeLine := m.claudeStyle.Render("Claude") + "\n" + m.claudeBubbleStyle.Render(msg.Content)
 
 			rendered = append(rendered, claudeLine)
@@ -187,8 +192,8 @@ func (m *model) renderMessages() string {
 
 	// Add current streaming message if any
 	if m.isStreaming && m.currentStreamingMessage != "" {
-		claudeLine := m.claudeStyle.Render("Claude") + "\n" +
-			m.claudeBubbleStyle.Render(m.currentStreamingMessage+"▋")
+		claudeLine := m.claudeStyle.Render("Claude") + "\n" + m.claudeBubbleStyle.Render(m.currentStreamingMessage+"▋")
+
 		rendered = append(rendered, claudeLine)
 	}
 
@@ -197,6 +202,7 @@ func (m *model) renderMessages() string {
 
 func (m *model) updateViewport() {
 	content := m.renderMessages()
+
 	m.viewport.SetContent(content)
 }
 
@@ -266,7 +272,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
+		case tea.KeyCtrlJ:
+			value := m.textarea.Value()
+			m.textarea.SetValue(value + "\n")
+			return m, nil
 		case tea.KeyEnter:
+			if msg.Alt {
+				break
+			}
+
 			inputMsg := strings.TrimSpace(m.textarea.Value())
 			if inputMsg == "" {
 				return m, nil
@@ -310,7 +324,7 @@ func (m model) View() string {
 		Foreground(lipgloss.Color("#666666")).
 		Width(centeredWidth).
 		Align(lipgloss.Center).
-		Render("Press Ctrl+C or Esc to quit • Enter to send message")
+		Render("Press Ctrl+C or Esc to quit • Enter to send message • Ctrl+j insert new line")
 
 	// Center the viewport content
 	centeredViewport := lipgloss.NewStyle().

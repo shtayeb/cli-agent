@@ -47,15 +47,16 @@ type model struct {
 func InitialChatModel(agentApp *agent.Agent) model {
 	ta := textarea.New()
 	ta.Placeholder = "Type your message here..."
-	ta.Focus()
-
+	ta.Prompt = ""
 	ta.SetWidth(80)
-	ta.SetHeight(3)
+	ta.SetHeight(4)
 
 	// Remove cursor line styling
 	ta.FocusedStyle.CursorLine = lipgloss.NewStyle()
 	ta.ShowLineNumbers = false
 	ta.KeyMap.InsertNewline.SetEnabled(true)
+
+	ta.Focus()
 
 	vp := viewport.New(100, 20)
 	vp.SetContent("Welcome to Claude Chat! 🤖\nType a message and press Enter to start chatting.")
@@ -331,9 +332,14 @@ func (m model) View() string {
 		Width(centeredWidth).
 		Render(m.viewport.View())
 
-	// Center the textarea
+		// Center the textarea with styling
 	centeredTextarea := lipgloss.NewStyle().
 		Width(centeredWidth).
+		Background(lipgloss.Color("#1e1e1e")).
+		Foreground(lipgloss.Color("#ffffff")).
+		Padding(0, 2).
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#404040")).
 		Render(m.textarea.View())
 
 	// Create the main content

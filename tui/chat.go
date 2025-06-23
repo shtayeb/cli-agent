@@ -209,7 +209,7 @@ func (m *model) renderWelcomeMessage() string {
 		Align(lipgloss.Center).
 		Width(centeredWidth)
 
-	return welcomeStyle.Render("Welcome to Claude Chat! 🤖\nType a message and press Enter to start chatting.")
+	return welcomeStyle.Render("Welcome to Coding Agent! 🤖\nType a message and press Enter to start building.")
 }
 
 func (m *model) updateViewport() {

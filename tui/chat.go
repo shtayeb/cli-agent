@@ -85,7 +85,7 @@ func InitialChatModel(agentApp *agent.Agent) model {
 		claudeBubbleStyle: claudeBubbleStyle,
 		err:               nil,
 		agent:             agentApp,
-		width:             80,
+		width:             100,
 		height:            25,
 	}
 }
@@ -167,7 +167,7 @@ func (m *model) renderMessages() string {
 	var rendered []string
 
 	// Calculate centered width for message alignment
-	centeredWidth := min(int(float64(m.width)*0.8), 120)
+	centeredWidth := min(int(float64(m.width)*0.8), 180)
 
 	for _, msg := range m.messages {
 		if msg.IsUser {
@@ -175,6 +175,7 @@ func (m *model) renderMessages() string {
 			userLine := lipgloss.NewStyle().Align(lipgloss.Right).Width(centeredWidth).Render(
 				m.userStyle.Render("You") + "\n" +
 					m.userBubbleStyle.Render(msg.Content))
+
 			rendered = append(rendered, userLine)
 		} else {
 			// Claude message - aligned to the left with gray bubble
@@ -253,7 +254,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.textarea.SetWidth(centeredWidth)
 		m.viewport.Height = msg.Height - m.textarea.Height() - lipgloss.Height(gap) - 4
 
-		// Update bubble styles with new width (60% of centered width)
+		// Update bubble styles with new width (100% of centered width)
 		maxBubbleWidth := (centeredWidth * 10) / 10
 		m.userBubbleStyle = m.userBubbleStyle.MaxWidth(maxBubbleWidth)
 		m.claudeBubbleStyle = m.claudeBubbleStyle.MaxWidth(maxBubbleWidth)
@@ -294,7 +295,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	// Calculate centered width (80% of terminal width, max 120 chars)
+	// Calculate centered width (80% of terminal width, max 180 chars)
 	centeredWidth := min(int(float64(m.width)*0.8), 180)
 	leftPadding := (m.width - centeredWidth) / 2
 

@@ -1,6 +1,6 @@
 # Agent CLI with Go
-
 A conversational AI CLI agent built with Go that uses the Anthropic Claude API and supports tool usage for file operations.
+
 ---
 ![Screenshot 2025-06-23 235957](https://github.com/user-attachments/assets/c7c36416-7e55-40e8-97b9-f0805217a743)
 

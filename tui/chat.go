@@ -59,7 +59,6 @@ func InitialChatModel(agentApp *agent.Agent) model {
 	ta.Focus()
 
 	vp := viewport.New(100, 20)
-	vp.SetContent("Welcome to Claude Chat! 🤖\nType a message and press Enter to start chatting.")
 
 	// Chat bubble styles - User on right, Claude on left
 	userBubbleStyle := lipgloss.NewStyle()
@@ -201,8 +200,27 @@ func (m *model) renderMessages() string {
 	return strings.Join(rendered, "\n\n")
 }
 
+func (m *model) renderWelcomeMessage() string {
+	centeredWidth := min(int(float64(m.width)*0.8), 180)
+
+	welcomeStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#888888")).
+		Italic(true).
+		Align(lipgloss.Center).
+		Width(centeredWidth)
+
+	return welcomeStyle.Render("Welcome to Claude Chat! 🤖\nType a message and press Enter to start chatting.")
+}
+
 func (m *model) updateViewport() {
-	content := m.renderMessages()
+	// Show welcome message when no conversation has started
+	content := ""
+
+	if len(m.messages) == 0 && !m.isStreaming {
+		content = m.renderWelcomeMessage()
+	} else {
+		content = m.renderMessages()
+	}
 
 	m.viewport.SetContent(content)
 }
@@ -259,7 +277,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		m.viewport.Width = centeredWidth
 		m.textarea.SetWidth(centeredWidth)
-		m.viewport.Height = msg.Height - m.textarea.Height() - lipgloss.Height(gap) - 4
+
+		// Calculate heights
+		headerHeight := 3                     // header + blank line
+		footerHeight := 1                     // footer
+		gapHeight := lipgloss.Height(gap)     // gap between viewport and textarea
+		textareaHeight := m.textarea.Height() // textarea
+
+		// Set viewport height accounting for all other elements
+		m.viewport.Height = msg.Height - headerHeight - footerHeight - gapHeight - textareaHeight - 2 // extra padding
 
 		// Update bubble styles with new width (100% of centered width)
 		maxBubbleWidth := (centeredWidth * 10) / 10
@@ -316,7 +342,7 @@ func (m model) View() string {
 
 	header := lipgloss.NewStyle().
 		Bold(true).
-		Padding(0, 2).
+		Padding(0, 4).
 		Width(centeredWidth).
 		Align(lipgloss.Center).
 		Render("🤖 Coding Agent")

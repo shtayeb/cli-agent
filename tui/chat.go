@@ -49,7 +49,6 @@ func InitialChatModel(agentApp *agent.Agent) model {
 	ta.Placeholder = "Type your message here..."
 	ta.Focus()
 
-	ta.Prompt = "💬 "
 	ta.CharLimit = 1000
 
 	ta.SetWidth(80)
@@ -58,27 +57,14 @@ func InitialChatModel(agentApp *agent.Agent) model {
 	// Remove cursor line styling
 	ta.FocusedStyle.CursorLine = lipgloss.NewStyle()
 	ta.ShowLineNumbers = false
-	ta.KeyMap.InsertNewline.SetEnabled(false)
+	ta.KeyMap.InsertNewline.SetEnabled(true)
 
-	vp := viewport.New(80, 20)
+	vp := viewport.New(100, 20)
 	vp.SetContent("Welcome to Claude Chat! 🤖\nType a message and press Enter to start chatting.")
 
 	// Chat bubble styles - User on right, Claude on left
-	userBubbleStyle := lipgloss.NewStyle().
-		Background(lipgloss.Color("#007AFF")).
-		Foreground(lipgloss.Color("#FFFFFF")).
-		Padding(1, 2).
-		MarginLeft(20).
-		Border(lipgloss.RoundedBorder()).
-		MaxWidth(60)
-
-	claudeBubbleStyle := lipgloss.NewStyle().
-		Background(lipgloss.Color("#E5E5EA")).
-		Foreground(lipgloss.Color("#000000")).
-		Padding(1, 2).
-		MarginRight(20).
-		Border(lipgloss.RoundedBorder()).
-		MaxWidth(60)
+	userBubbleStyle := lipgloss.NewStyle()
+	claudeBubbleStyle := lipgloss.NewStyle()
 
 	userStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#007AFF")).
@@ -179,29 +165,29 @@ func (m *model) Run(ctx context.Context, userInput string) tea.Cmd {
 
 func (m *model) renderMessages() string {
 	var rendered []string
-	
+
 	// Calculate centered width for message alignment
 	centeredWidth := min(int(float64(m.width)*0.8), 120)
-	
+
 	for _, msg := range m.messages {
 		if msg.IsUser {
 			// User message - aligned to the right with blue bubble
 			userLine := lipgloss.NewStyle().Align(lipgloss.Right).Width(centeredWidth).Render(
-				m.userStyle.Render("You") + "\n" + 
-				m.userBubbleStyle.Render(msg.Content))
+				m.userStyle.Render("You") + "\n" +
+					m.userBubbleStyle.Render(msg.Content))
 			rendered = append(rendered, userLine)
 		} else {
 			// Claude message - aligned to the left with gray bubble
-			claudeLine := m.claudeStyle.Render("Claude") + "\n" + 
-				m.claudeBubbleStyle.Render(msg.Content)
+			claudeLine := m.claudeStyle.Render("Claude") + "\n" + m.claudeBubbleStyle.Render(msg.Content)
+
 			rendered = append(rendered, claudeLine)
 		}
 	}
 
 	// Add current streaming message if any
 	if m.isStreaming && m.currentStreamingMessage != "" {
-		claudeLine := m.claudeStyle.Render("Claude") + "\n" + 
-			m.claudeBubbleStyle.Render(m.currentStreamingMessage + "▋")
+		claudeLine := m.claudeStyle.Render("Claude") + "\n" +
+			m.claudeBubbleStyle.Render(m.currentStreamingMessage+"▋")
 		rendered = append(rendered, claudeLine)
 	}
 
@@ -228,10 +214,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.isStreaming = true
 			m.currentStreamingMessage = ""
 		}
-		
+
 		// accumulate streaming text
 		m.currentStreamingMessage += string(msg)
-		
+
 		m.updateViewport()
 		m.viewport.GotoBottom()
 
@@ -246,11 +232,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				IsUser:  false,
 			})
 		}
-		
+
 		m.isStreaming = false
 		m.streamingChan = nil
 		m.currentStreamingMessage = ""
-		
+
 		m.updateViewport()
 		m.viewport.GotoBottom()
 
@@ -259,16 +245,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		
+
 		// Calculate centered dimensions
-		centeredWidth := min(int(float64(msg.Width)*0.8), 120)
-		
+		centeredWidth := min(int(float64(msg.Width)*0.8), 180)
+
 		m.viewport.Width = centeredWidth
 		m.textarea.SetWidth(centeredWidth)
 		m.viewport.Height = msg.Height - m.textarea.Height() - lipgloss.Height(gap) - 4
 
 		// Update bubble styles with new width (60% of centered width)
-		maxBubbleWidth := (centeredWidth * 6) / 10
+		maxBubbleWidth := (centeredWidth * 10) / 10
 		m.userBubbleStyle = m.userBubbleStyle.MaxWidth(maxBubbleWidth)
 		m.claudeBubbleStyle = m.claudeBubbleStyle.MaxWidth(maxBubbleWidth)
 
@@ -309,17 +295,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	// Calculate centered width (80% of terminal width, max 120 chars)
-	centeredWidth := min(int(float64(m.width)*0.8), 120)
+	centeredWidth := min(int(float64(m.width)*0.8), 180)
 	leftPadding := (m.width - centeredWidth) / 2
-	
+
 	header := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("#FFFFFF")).
-		Background(lipgloss.Color("#007AFF")).
 		Padding(0, 2).
 		Width(centeredWidth).
 		Align(lipgloss.Center).
-		Render("🤖 Claude Chat")
+		Render("🤖 Coding Agent")
 
 	footer := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#666666")).

@@ -168,7 +168,7 @@ func (m *model) renderMessages() string {
 	centeredWidth := min(int(float64(m.width)*0.8), 180)
 
 	// Set the bubble width to ensure text wrapping
-	// m.userBubbleStyle = m.userBubbleStyle.Width(centeredWidth)
+	m.userBubbleStyle = m.userBubbleStyle.Width(centeredWidth)
 	m.claudeBubbleStyle = m.claudeBubbleStyle.Width(centeredWidth)
 
 	for _, msg := range m.messages {
